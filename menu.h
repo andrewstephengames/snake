@@ -29,8 +29,6 @@ typedef enum {
 
 Vector2 rec_to_v (Rectangle rec);
 void center_element (Element *e, Vector2 canvas);
-GameState mouse_on_element (Element *e, GameState current_state, GameState prev_state);
-GameState draw_button (Element *e, bool texture, bool center, Vector2 canvas, GameState current_state, GameState prev_state);
 void draw_label (Element *e, bool texture, bool center, Vector2 canvas);
 void draw_input (Element *e, bool texture, bool center, Vector2 canvas);
 bool draw_background (Vector2 canvas, float alpha, Texture2D texture);
@@ -44,34 +42,6 @@ void center_element (Element *e, Vector2 canvas) {
      float y = canvas.y/2-e->font_size/2;
      e->box.x = x;
      e->box.y = y;
-}
-
-GameState mouse_on_element (Element *e, GameState current_state, GameState prev_state) {
-     Vector2 mouse = GetMousePosition();
-     if (CheckCollisionPointRec (mouse, e->box)) {
-          e->bg.a = 255;
-          if (IsMouseButtonPressed (MOUSE_BUTTON_LEFT)) {
-               return current_state;
-          }
-     } else {
-          e->bg.a = 127;
-     }
-     return prev_state;
-}
-
-GameState draw_button (Element *e, bool texture, bool center, Vector2 canvas, GameState current_state, GameState prev_state) {
-     if (center) {
-          center_element (e, canvas);
-     }
-     e->box.width = MeasureText(e->label, e->font_size);
-     e->box.height = e->font_size;
-     if (texture) {
-          DrawTextureRec (e->texture, e->box, rec_to_v(e->box), e->bg);
-     } else {
-          DrawRectangleRec (e->box, e->bg);
-     }
-     DrawText (e->label, e->box.x, e->box.y, e->font_size, e->fg);
-     return mouse_on_element (e, current_state, prev_state);
 }
 
 void draw_label (Element *e, bool texture, bool center, Vector2 canvas) {
