@@ -6,4 +6,4 @@ LIBS="-lraylib"
 CFLAGS="-w -std=c++20"
 DEBUG="-ggdb"
 [[ ! -d ../build ]] && mkdir ../build && clear && $CC $CFLAGS $1 -o ../build/$e $LIBS $DEBUG && ../build/$e
-[[ -d ../build ]] clear && $CC $CFLAGS $1 -o ../build/$e $LIBS $DEBUG && ../build/$e
+[[ -d ../build ]] && clear && $CC $CFLAGS $1 -o ../build/$e $LIBS $DEBUG && ../build/$e
