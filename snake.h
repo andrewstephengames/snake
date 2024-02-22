@@ -3,10 +3,39 @@
 
 #include <ctime>
 #include <vector>
+#include "menu.h"
 
 using std::vector;
 
-#include "menu.h"
+typedef enum {
+     Title,
+     Button1,
+     Button2,
+     Score,
+} ui_element;
+
+class Snake {
+     private:
+          Rectangle rect;
+          Texture2D texture;
+     public:
+          Snake (Rectangle rect, char *file_name) {
+               this->rect = rect;
+               texture = LoadTexture (file_name);
+          }
+          Texture2D get_texture () {
+               return texture;
+          }
+          ~Snake() {
+               if (texture.id > 0) {
+                    UnloadTexture(texture);
+               }
+          }
+          Rectangle get_rect () {
+               return rect;
+          }
+          void handle_keys (Vector2 canvas);
+};
 
 class Game {
      private:
@@ -23,8 +52,9 @@ class Game {
                this->score = score;
           }
           ~Game() {
-               UnloadTexture (background);
-               e.clear();
+               if (background.id > 0) {
+                    UnloadTexture (background);
+               }
           }
           GameState get_game_state () {
                return game_state;
@@ -47,30 +77,10 @@ class Game {
           Texture2D get_background() {
                return background;
           }
-          void state_machine ();
-};
-
-class Snake {
-     private:
-          Rectangle rect;
-          Texture2D texture;
-     public:
-          Snake (Rectangle rect, char *file_name) {
-               this->rect = rect;
-               //DrawRectangleRec (rect, GREEN);
-               Vector2 pos = {rect.x, rect.y};
-               texture = LoadTexture (file_name);
-          }
-          Texture2D get_texture () {
-               return texture;
-          }
-          ~Snake() {
-               UnloadTexture(texture);
-          }
-          Rectangle get_rect () {
-               return rect;
-          }
-          void handle_keys (Vector2 canvas);
+          void state_machine (Snake *snake);
+          void mouse_on_element (Element *e, GameState current_state, GameState prev_state);
+          void draw_button (Element *e, bool texture, bool center, Vector2 canvas, GameState current_state, GameState prev_state);
+          void print_game_state();
 };
 
 class Fruit {
@@ -84,7 +94,9 @@ class Fruit {
                points = 0;
           }
           ~Fruit() {
-               UnloadTexture (texture);
+               if (texture.id > 0) {
+                    UnloadTexture (texture);
+               }
           }
           Rectangle get_rect() {
                return rect;
@@ -120,84 +132,116 @@ void Snake::handle_keys (Vector2 canvas) {
      float margin = canvas.x/60;
      if (IsKeyPressed (KEY_W) || IsKeyPressed (KEY_UP)) {
           rect.y -= margin;
-          printf ("%d was pressed\n", KEY_W);
      }
      if (IsKeyPressed (KEY_A) || IsKeyPressed (KEY_LEFT)) {
           rect.x -= margin;
-          printf ("%d was pressed\n", KEY_A);
      }
      if (IsKeyPressed (KEY_S) || IsKeyPressed (KEY_DOWN)) {
           rect.y += margin;
-          printf ("%d was pressed\n", KEY_S);
      }
      if (IsKeyPressed (KEY_D) || IsKeyPressed (KEY_RIGHT)) {
           rect.x += margin;
-          printf ("%d was pressed\n", KEY_D);
      }
 }
 
-void Game::state_machine () {
+void Game::print_game_state() {
+     switch (Game::get_game_state()) {
+          case 0: {
+               printf ("Menu\n");
+          } break;
+          case 1: {
+               printf ("Start\n");
+          } break;
+          case 2: {
+               printf ("End\n");
+          } break;
+          default:
+               printf ("Unknown\n");
+     }
+}
+
+void Game::mouse_on_element (Element *e, GameState current_state, GameState prev_state) {
+     Vector2 mouse = GetMousePosition();
+     if (CheckCollisionPointRec (mouse, e->box)) {
+          e->fg = LIME;
+          e->bg = WHITE;
+          if (IsMouseButtonPressed (MOUSE_BUTTON_LEFT)) {
+               Game::set_game_state (current_state);
+          }
+     } else {
+          e->fg = BLACK;
+          e->bg = WHITE;
+     }
+}
+
+void Game::draw_button (Element *e, bool texture, bool center, Vector2 canvas, GameState current_state, GameState prev_state) {
+     if (center) {
+          center_element (e, canvas);
+     }
+     e->box.width = MeasureText(e->label, e->font_size);
+     e->box.height = e->font_size;
+     if (texture) {
+          DrawTextureRec (e->texture, e->box, rec_to_v(e->box), e->bg);
+     } else {
+          float thick = e->box.x/100;
+          Rectangle temp = {
+               .x = e->box.x - thick*3,
+               .y = e->box.y - thick*3,
+               .width = e->box.width + thick*5,
+               .height = e->box.height + thick*5,
+          };
+          DrawRectangleLinesEx (temp, thick, e->fg);
+     }
+     DrawText (e->label, e->box.x, e->box.y, e->font_size, e->fg);
+     mouse_on_element (e, current_state, prev_state);
+}
+
+void Game::state_machine (Snake *snake) {
+     bool use_texture, center;
+     Vector2 w = Game::get_canvas();
      switch (Game::get_game_state()) {
           case Menu: {
-               ClearBackground (RAYWHITE);
-               draw_background (Game::get_canvas(), 255, Game::get_background());
+               draw_background (w, 255, Game::get_background());
+               use_texture = false;
+               center = true;
                Vector2 canvas = {
-                    .x = Game::get_canvas().x,
-                    .y = Game::get_canvas().y/2,
+                    .x = w.x,
+                    .y = w.y/2,
                };
-               Element e1 = {
-                    .box = {
-                         .x = canvas.x,
-                         .y = canvas.y,
-                         .width = 100,
-                         .height = 100,
-                    },
-                    .font_size = canvas.x/15,
-                    .bg = WHITE,
-                    .fg = BLACK,
-                    .texture = {0},
-               };
-               strcpy (e1.label, "Snake");
-               e.push_back (e1);
-               bool use_texture = false;
-               bool center = true;
-               draw_label (&e.back(), use_texture, center, canvas);
-               /*
-               canvas.y = Game::get_canvas().y + Game::get_canvas().y/6;
-               strcpy (e->label, "Play");
-               Game::set_game_state (draw_button (e, use_texture, true, canvas, Start, Menu));
-               canvas.y = Game::get_canvas().y + Game::get_canvas().y/6;
-               strcpy (e->label, "Quit");
-               Game::set_game_state (draw_button (e, use_texture, true, canvas, End, Menu));
-               */
-          } break;
-          case Start: {
-               /*
-               Vector2 canvas = Game::get_canvas();
-               draw_background (canvas, 255, Game::get_background());
-               strcpy (e.label, "Score");
-               draw_label (&e.back(), false, false, canvas);
-               e->box = {
-                    .x = rand()%(int)canvas.x,
-                    .y = rand()%(int)canvas.y,
-                    .width = 32,
-                    .height = 32,
-               };
-               Snake *snake = new Snake (e->box, NULL);
-               if (snake->get_texture().id > 0) {
-                    DrawTextureRec (snake->get_texture(), e->box, rec_to_v(e->box), WHITE);
-               } else {
-                    DrawRectangleRec (e->box, WHITE);
-               }
-               snake->handle_keys(canvas);
-               */
+               draw_label (&Game::e.at(Title), use_texture, center, canvas);
+
+               use_texture = false;
+               center = true;
+               canvas.y = w.y;
+               Game::draw_button (&Game::e.at(Button1), use_texture, center, canvas, Start, Menu);
+
+               use_texture = false;
+               center = true;
+               canvas.y = w.y + w.y/2;
+               Game::draw_button (&Game::e.at(Button2), use_texture, center, canvas, End, Menu);
                if (IsKeyPressed (KEY_Q)) {
                     Game::set_game_state (End);
                }
           } break;
+          case Start: {
+               draw_background (w, 255, Game::get_background());
+               if (IsKeyPressed (KEY_Q)) {
+                    Game::set_game_state (End);
+               }
+               center = false;
+               use_texture = false;
+               sprintf (Game::e.at(Score).label, "Score: %d", Game::get_score());
+               draw_label (&Game::e.at(Score), center, use_texture, w);
+               if (snake->get_texture().id > 0) {
+                    DrawTextureRec (snake->get_texture(), snake->get_rect(), rec_to_v(snake->get_rect()), WHITE);
+               } else {
+                    DrawRectangleRec (snake->get_rect(), GREEN);
+               }
+               snake->handle_keys(w);
+          } break;
           case End: {
-               //CloseWindow();
-               //exit(EXIT_SUCCESS);
+               draw_background (canvas, 255, Game::get_background());
+               exit(EXIT_SUCCESS);
           } break;
           default: {
                fprintf (stderr, "Unknown game state\n");
