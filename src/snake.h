@@ -18,10 +18,13 @@ class Snake {
      private:
           Rectangle rect;
           Texture2D texture;
+          float speed;
+          bool keys[512];
      public:
-          Snake (Rectangle rect, char *file_name) {
+          Snake (Rectangle rect, char *file_name, float speed) {
                this->rect = rect;
                texture = LoadTexture (file_name);
+               this->speed = speed;
           }
           Texture2D get_texture () {
                return texture;
@@ -34,6 +37,13 @@ class Snake {
           Rectangle get_rect () {
                return rect;
           }
+          float get_speed () {
+               return speed;
+          }
+          void set_speed (float speed) {
+               this->speed = speed;
+          }
+          void unload_keys ();
           void handle_keys (Vector2 canvas);
 };
 
@@ -124,23 +134,60 @@ void Fruit::generate(Vector2 canvas) {
           .x = canvas.x-margin,
           .y = canvas.y-margin,
      };
-     rect.x = rand()%(int)canvas2.x;
-     rect.y = rand()%(int)canvas2.y;
+     rect.x = (float)GetRandomValue (margin, canvas2.x);
+     rect.y = (float)GetRandomValue (margin, canvas2.y);
+     rect.width = margin;
+     rect.height = margin;
+}
+
+void Snake::unload_keys () {
+     for (int i = 0; i < 512; ++i) {
+          Snake::keys[i] = false;
+     }
 }
 
 void Snake::handle_keys (Vector2 canvas) {
+     Vector2 dir = {1, 1};
      float margin = canvas.x/60;
-     if (IsKeyPressed (KEY_W) || IsKeyPressed (KEY_UP)) {
-          rect.y -= margin;
+     if (IsKeyPressed (KEY_W)) {
+          Snake::unload_keys();
+          Snake::keys[KEY_W] = true;
      }
-     if (IsKeyPressed (KEY_A) || IsKeyPressed (KEY_LEFT)) {
-          rect.x -= margin;
+     if (IsKeyPressed (KEY_A)) {
+          Snake::unload_keys();
+          Snake::keys[KEY_A] = true;
      }
-     if (IsKeyPressed (KEY_S) || IsKeyPressed (KEY_DOWN)) {
-          rect.y += margin;
+     if (IsKeyPressed (KEY_S)) {
+          Snake::unload_keys();
+          Snake::keys[KEY_S] = true;
      }
-     if (IsKeyPressed (KEY_D) || IsKeyPressed (KEY_RIGHT)) {
-          rect.x += margin;
+     if (IsKeyPressed (KEY_D)) {
+          Snake::unload_keys();
+          Snake::keys[KEY_D] = true;
+     }
+     if (rect.x > canvas.x-margin) {
+          rect.x = margin;
+     }
+     if (rect.x < margin) {
+          rect.x = canvas.x-margin;
+     }
+     if (rect.y > canvas.y-margin) {
+          rect.y = margin;
+     }
+     if (rect.y < margin) {
+          rect.y = canvas.y-margin;
+     }
+     if (Snake::keys[KEY_W]) {
+          rect.y -= margin*Snake::speed;
+     }
+     if (Snake::keys[KEY_A]) {
+          rect.x -= margin*Snake::speed;
+     }
+     if (Snake::keys[KEY_S]) {
+          rect.y += margin*Snake::speed;
+     }
+     if (Snake::keys[KEY_D]) {
+          rect.x += margin*Snake::speed;
      }
 }
 
@@ -238,6 +285,9 @@ void Game::state_machine (Snake *snake) {
                     DrawRectangleRec (snake->get_rect(), GREEN);
                }
                snake->handle_keys(w);
+               if (IsKeyPressed (KEY_R)) {
+                    Game::set_game_state (Menu);
+               }
           } break;
           case End: {
                draw_background (canvas, 255, Game::get_background());

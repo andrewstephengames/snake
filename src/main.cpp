@@ -81,7 +81,7 @@ int main () {
           .width = 32,
           .height = 32,
      };
-     Snake *snake = new Snake (snake_box, NULL);
+     Snake *snake = new Snake (snake_box, NULL, 0.5f);
      while (!WindowShouldClose()) {
           w.x = GetScreenWidth();
           w.y = GetScreenHeight();
