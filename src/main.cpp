@@ -75,20 +75,16 @@ int main () {
           .texture = {0},
      };
      game->e.push_back (score);
-     Rectangle snake_box = {
-          .x = (float)GetRandomValue (32, w.x-32),
-          .y = (float)GetRandomValue (32, w.y-32),
-          .width = 32,
-          .height = 32,
-     };
-     Snake *snake = new Snake (snake_box, NULL, 0.5f);
+
+     Snake *snake = new Snake (NULL, 0.5f);
+     Fruit *fruit = new Fruit (NULL);
      while (!WindowShouldClose()) {
           w.x = GetScreenWidth();
           w.y = GetScreenHeight();
           game->set_canvas (w);
           BeginDrawing();
                ClearBackground (RAYWHITE);
-               game->state_machine(snake);
+               game->state_machine(snake, fruit);
           EndDrawing();
      }
      CloseWindow();

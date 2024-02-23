@@ -14,6 +14,47 @@ typedef enum {
      Score,
 } ui_element;
 
+class Fruit {
+     private:
+          Vector2 center;
+          float radius;
+          Texture2D texture;
+          int points;
+     public:
+          Fruit (char *file_name) {
+               texture = LoadTexture (file_name);
+               points = 0;
+          }
+          ~Fruit() {
+               if (texture.id > 0) {
+                    UnloadTexture (texture);
+               }
+          }
+          Vector2 get_center() {
+               return center;
+          }
+          void set_center(Vector2 center) {
+               this->center = center;
+          }
+          float get_radius() {
+               return radius;
+          }
+          void set_radius (float radius) {
+               this->radius = radius;
+          }
+          Texture2D get_texture () {
+               return texture;
+          }
+          void set_points (int points) {
+               this->points = points;
+          }
+          int get_points () {
+               return points;
+          }
+          void generate (Vector2 canvas);
+          void draw (Vector2);
+};
+
 class Snake {
      private:
           Rectangle rect;
@@ -21,8 +62,7 @@ class Snake {
           float speed;
           bool keys[512];
      public:
-          Snake (Rectangle rect, char *file_name, float speed) {
-               this->rect = rect;
+          Snake (char *file_name, float speed) {
                texture = LoadTexture (file_name);
                this->speed = speed;
           }
@@ -34,6 +74,9 @@ class Snake {
                     UnloadTexture(texture);
                }
           }
+          void set_rect (Rectangle rect) {
+               this->rect = rect;
+          }
           Rectangle get_rect () {
                return rect;
           }
@@ -43,7 +86,9 @@ class Snake {
           void set_speed (float speed) {
                this->speed = speed;
           }
-          void unload_keys ();
+          void generate (Vector2 canvas);
+          void draw ();
+          void reset_keys ();
           void handle_keys (Vector2 canvas);
 };
 
@@ -87,43 +132,11 @@ class Game {
           Texture2D get_background() {
                return background;
           }
-          void state_machine (Snake *snake);
+          void state_machine (Snake *snake, Fruit *fruit);
           void mouse_on_element (Element *e, GameState current_state, GameState prev_state);
           void draw_button (Element *e, bool texture, bool center, Vector2 canvas, GameState current_state, GameState prev_state);
           void print_game_state();
-};
-
-class Fruit {
-     private:
-          Rectangle rect;
-          Texture2D texture;
-          int points;
-     public:
-          Fruit (char *file_name) {
-               texture = LoadTexture (file_name);
-               points = 0;
-          }
-          ~Fruit() {
-               if (texture.id > 0) {
-                    UnloadTexture (texture);
-               }
-          }
-          Rectangle get_rect() {
-               return rect;
-          }
-          void set_rect() {
-               this->rect = rect;
-          }
-          Texture2D get_texture () {
-               return texture;
-          }
-          void set_points (int points) {
-               this->points = points;
-          }
-          int get_points () {
-               return points;
-          }
-          void generate (Vector2 canvas);
+          void handle_collision (Snake *snake, Fruit *fruit, Vector2 canvas);
 };
 
 #endif // SNAKE_H_
@@ -134,13 +147,53 @@ void Fruit::generate(Vector2 canvas) {
           .x = canvas.x-margin,
           .y = canvas.y-margin,
      };
-     rect.x = (float)GetRandomValue (margin, canvas2.x);
-     rect.y = (float)GetRandomValue (margin, canvas2.y);
-     rect.width = margin;
-     rect.height = margin;
+     Vector2 point = {
+          .x = (float)GetRandomValue (margin, canvas2.x),
+          .y = (float)GetRandomValue (margin, canvas2.y),
+     };
+     Fruit::set_center (point);
+     Fruit::set_radius (margin);
 }
 
-void Snake::unload_keys () {
+void Fruit::draw (Vector2 canvas) {
+     float margin = canvas.x/60;
+     if (Fruit::get_texture().id > 0) {
+          Rectangle texture_rec = {
+               .x = canvas.x-margin,
+               .y = canvas.y-margin,
+               .width = margin,
+               .height = margin,
+          };
+          DrawRectangleRec (texture_rec, WHITE);
+     } else {
+          DrawCircleV (Fruit::get_center(), Fruit::get_radius(), RED);
+     }
+}
+
+void Snake::generate (Vector2 canvas) {
+     float margin = canvas.x/60;
+     Vector2 canvas2 = {
+          .x = canvas.x-margin,
+          .y = canvas.y-margin,
+     };
+     Rectangle snake_box = {
+          .x = (float)GetRandomValue (margin, canvas2.x),
+          .y = (float)GetRandomValue (margin, canvas2.y),
+          .width = margin*2,
+          .height = margin*2,
+     };
+     Snake::set_rect (snake_box);
+}
+
+void Snake::draw() {
+     if (Snake::get_texture().id > 0) {
+          DrawTextureRec (Snake::get_texture(), Snake::get_rect(), rec_to_v(Snake::get_rect()), WHITE);
+     } else {
+          DrawRectangleRec (Snake::get_rect(), GREEN);
+     }
+}
+
+void Snake::reset_keys () {
      for (int i = 0; i < 512; ++i) {
           Snake::keys[i] = false;
      }
@@ -150,19 +203,19 @@ void Snake::handle_keys (Vector2 canvas) {
      Vector2 dir = {1, 1};
      float margin = canvas.x/60;
      if (IsKeyPressed (KEY_W)) {
-          Snake::unload_keys();
+          Snake::reset_keys();
           Snake::keys[KEY_W] = true;
      }
      if (IsKeyPressed (KEY_A)) {
-          Snake::unload_keys();
+          Snake::reset_keys();
           Snake::keys[KEY_A] = true;
      }
      if (IsKeyPressed (KEY_S)) {
-          Snake::unload_keys();
+          Snake::reset_keys();
           Snake::keys[KEY_S] = true;
      }
      if (IsKeyPressed (KEY_D)) {
-          Snake::unload_keys();
+          Snake::reset_keys();
           Snake::keys[KEY_D] = true;
      }
      if (rect.x > canvas.x-margin) {
@@ -188,6 +241,13 @@ void Snake::handle_keys (Vector2 canvas) {
      }
      if (Snake::keys[KEY_D]) {
           rect.x += margin*Snake::speed;
+     }
+}
+
+void Game::handle_collision (Snake *snake, Fruit *fruit, Vector2 canvas) {
+     if (CheckCollisionCircleRec (fruit->get_center(), fruit->get_radius(), snake->get_rect())) {
+          Game::set_score(Game::get_score()+1);
+          fruit->generate(canvas);
      }
 }
 
@@ -243,7 +303,7 @@ void Game::draw_button (Element *e, bool texture, bool center, Vector2 canvas, G
      mouse_on_element (e, current_state, prev_state);
 }
 
-void Game::state_machine (Snake *snake) {
+void Game::state_machine (Snake *snake, Fruit *fruit) {
      bool use_texture, center;
      Vector2 w = Game::get_canvas();
      switch (Game::get_game_state()) {
@@ -269,6 +329,10 @@ void Game::state_machine (Snake *snake) {
                if (IsKeyPressed (KEY_Q)) {
                     Game::set_game_state (End);
                }
+               Game::set_score(0);
+               snake->generate(w);
+               snake->reset_keys();
+               fruit->generate(w);
           } break;
           case Start: {
                draw_background (w, 255, Game::get_background());
@@ -279,12 +343,10 @@ void Game::state_machine (Snake *snake) {
                use_texture = false;
                sprintf (Game::e.at(Score).label, "Score: %d", Game::get_score());
                draw_label (&Game::e.at(Score), center, use_texture, w);
-               if (snake->get_texture().id > 0) {
-                    DrawTextureRec (snake->get_texture(), snake->get_rect(), rec_to_v(snake->get_rect()), WHITE);
-               } else {
-                    DrawRectangleRec (snake->get_rect(), GREEN);
-               }
+               snake->draw();
                snake->handle_keys(w);
+               fruit->draw(w);
+               handle_collision (snake, fruit, w);
                if (IsKeyPressed (KEY_R)) {
                     Game::set_game_state (Menu);
                }
