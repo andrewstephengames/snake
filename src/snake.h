@@ -20,10 +20,12 @@ class Fruit {
           float radius;
           Texture2D texture;
           int points;
+          Color color;
      public:
-          Fruit (char *file_name) {
+          Fruit (char *file_name, Color color) {
                texture = LoadTexture (file_name);
                points = 0;
+               this->color = color;
           }
           ~Fruit() {
                if (texture.id > 0) {
@@ -42,6 +44,12 @@ class Fruit {
           void set_radius (float radius) {
                this->radius = radius;
           }
+          Color get_color () {
+               return color;
+          }
+          void set_color (Color color) {
+               this->color = color;
+          }
           Texture2D get_texture () {
                return texture;
           }
@@ -52,7 +60,7 @@ class Fruit {
                return points;
           }
           void generate (Vector2 canvas);
-          void draw (Vector2);
+          void draw (Vector2 canvas);
 };
 
 class Snake {
@@ -61,10 +69,14 @@ class Snake {
           Texture2D texture;
           float speed;
           bool keys[512];
+          size_t length;
+          Color color;
      public:
-          Snake (char *file_name, float speed) {
+          Snake (char *file_name, float speed, Color color) {
                texture = LoadTexture (file_name);
                this->speed = speed;
+               length = 0;
+               this->color = color;
           }
           Texture2D get_texture () {
                return texture;
@@ -86,10 +98,23 @@ class Snake {
           void set_speed (float speed) {
                this->speed = speed;
           }
+          Color get_color () {
+               return color;
+          }
+          void set_color (Color color) {
+               this->color = color;
+          }
+          size_t get_length() {
+               return length;
+          }
+          void set_length (size_t length) {
+               this->length = length;
+          }
           void generate (Vector2 canvas);
-          void draw ();
+          void draw_head ();
+          void draw_tail (Vector2 canvas, int last_direction);
           void reset_keys ();
-          void handle_keys (Vector2 canvas);
+          int handle_keys (Vector2 canvas);
 };
 
 class Game {
@@ -166,7 +191,7 @@ void Fruit::draw (Vector2 canvas) {
           };
           DrawRectangleRec (texture_rec, WHITE);
      } else {
-          DrawCircleV (Fruit::get_center(), Fruit::get_radius(), RED);
+          DrawCircleV (Fruit::get_center(), Fruit::get_radius(), Fruit::color);
      }
 }
 
@@ -185,11 +210,40 @@ void Snake::generate (Vector2 canvas) {
      Snake::set_rect (snake_box);
 }
 
-void Snake::draw() {
+void Snake::draw_head() {
      if (Snake::get_texture().id > 0) {
           DrawTextureRec (Snake::get_texture(), Snake::get_rect(), rec_to_v(Snake::get_rect()), WHITE);
      } else {
-          DrawRectangleRec (Snake::get_rect(), GREEN);
+          DrawRectangleRec (Snake::get_rect(), Snake::color);
+     }
+}
+
+void Snake::draw_tail(Vector2 canvas, int last_direction) {
+     float margin = canvas.x/60;
+     Vector2 w = {canvas.x-margin, canvas.y-margin};
+     bool texture = Snake::get_texture().id > 0;
+     Rectangle rec2;
+     for (size_t i = 0; i < Snake::get_length(); ++i) {
+          rec2 = Snake::get_rect();
+          switch (last_direction) {
+               case KEY_W: {
+                    rec2.y -= (i+1)*margin;
+               } break;
+               case KEY_A: {
+                    rec2.x -= (i+1)*margin;
+               } break;
+               case KEY_S: {
+                    rec2.y += (i+1)*margin;
+               } break;
+               case KEY_D: {
+                    rec2.x += (i+1)*margin;
+               } break;
+          }
+          if (texture) {
+               DrawTextureRec (Snake::get_texture(), rec2, rec_to_v(rec2), WHITE);
+          } else {
+               DrawRectangleRec (rec2, Snake::color);
+          }
      }
 }
 
@@ -199,24 +253,29 @@ void Snake::reset_keys () {
      }
 }
 
-void Snake::handle_keys (Vector2 canvas) {
+int Snake::handle_keys (Vector2 canvas) {
+     int ret;
      Vector2 dir = {1, 1};
      float margin = canvas.x/60;
      if (IsKeyPressed (KEY_W)) {
           Snake::reset_keys();
           Snake::keys[KEY_W] = true;
+          ret = KEY_W;
      }
      if (IsKeyPressed (KEY_A)) {
           Snake::reset_keys();
           Snake::keys[KEY_A] = true;
+          ret = KEY_A;
      }
      if (IsKeyPressed (KEY_S)) {
           Snake::reset_keys();
           Snake::keys[KEY_S] = true;
+          ret = KEY_S;
      }
      if (IsKeyPressed (KEY_D)) {
           Snake::reset_keys();
           Snake::keys[KEY_D] = true;
+          ret = KEY_D;
      }
      if (rect.x > canvas.x-margin) {
           rect.x = margin;
@@ -242,11 +301,13 @@ void Snake::handle_keys (Vector2 canvas) {
      if (Snake::keys[KEY_D]) {
           rect.x += margin*Snake::speed;
      }
+     return ret;
 }
 
 void Game::handle_collision (Snake *snake, Fruit *fruit, Vector2 canvas) {
      if (CheckCollisionCircleRec (fruit->get_center(), fruit->get_radius(), snake->get_rect())) {
           Game::set_score(Game::get_score()+1);
+          snake->set_length(snake->get_length()+1);
           fruit->generate(canvas);
      }
 }
@@ -308,6 +369,9 @@ void Game::state_machine (Snake *snake, Fruit *fruit) {
      Vector2 w = Game::get_canvas();
      switch (Game::get_game_state()) {
           case Menu: {
+               if (IsKeyPressed (KEY_Q)) {
+                    Game::set_game_state (End);
+               }
                draw_background (w, 255, Game::get_background());
                use_texture = false;
                center = true;
@@ -330,6 +394,7 @@ void Game::state_machine (Snake *snake, Fruit *fruit) {
                     Game::set_game_state (End);
                }
                Game::set_score(0);
+               snake->set_length(0);
                snake->generate(w);
                snake->reset_keys();
                fruit->generate(w);
@@ -337,16 +402,17 @@ void Game::state_machine (Snake *snake, Fruit *fruit) {
           case Start: {
                draw_background (w, 255, Game::get_background());
                if (IsKeyPressed (KEY_Q)) {
-                    Game::set_game_state (End);
+                    Game::set_game_state (Menu);
                }
                center = false;
                use_texture = false;
                sprintf (Game::e.at(Score).label, "Score: %d", Game::get_score());
                draw_label (&Game::e.at(Score), center, use_texture, w);
-               snake->draw();
-               snake->handle_keys(w);
+               snake->draw_head();
+               int last_dir = snake->handle_keys(w);
+               snake->draw_tail(canvas, last_dir);
                fruit->draw(w);
-               handle_collision (snake, fruit, w);
+               Game::handle_collision (snake, fruit, w);
                if (IsKeyPressed (KEY_R)) {
                     Game::set_game_state (Menu);
                }

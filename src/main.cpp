@@ -76,8 +76,8 @@ int main () {
      };
      game->e.push_back (score);
 
-     Snake *snake = new Snake (NULL, 0.5f);
-     Fruit *fruit = new Fruit (NULL);
+     Snake *snake = new Snake (NULL, 0.5f, DARKGREEN);
+     Fruit *fruit = new Fruit (NULL, RED);
      while (!WindowShouldClose()) {
           w.x = GetScreenWidth();
           w.y = GetScreenHeight();
